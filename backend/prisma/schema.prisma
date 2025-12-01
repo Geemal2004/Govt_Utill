@@ -1,0 +1,42 @@
+// Prisma Schema for SQL Server
+// This is your Prisma schema file.
+// Run `npx prisma db pull` to introspect your existing database
+// and generate models automatically.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// After running `npx prisma db pull`, your models will appear here.
+// The introspection will generate models for all tables in your GOVT_UTILL_6 database:
+// - ZONE
+// - STAFF
+// - ADMINISTRATIVE_STAFF
+// - METER_READER
+// - FIELD_OFFICER
+// - CASHIER
+// - MANAGER
+// - CUSTOMER
+// - TARIFF_CATEGORY
+// - TARIFF_SLAB
+// - _CONNECTION
+// - METER
+// - SOLAR_INSTALLATION
+// - METER_READING
+// - BILL
+// - BILL_DETAIL
+// - PAYMENT
+// - SUBSIDY_SCHEME
+// - CUSTOMER_SUBSIDY
+// - TAX_CONFIG
+// - BILL_TAX
+// - COMPLAINT
+// - OUTAGE
+// - DISCONNECTION_ORDER
+// - RECONNECTION
+// - REPORT_REQUEST
