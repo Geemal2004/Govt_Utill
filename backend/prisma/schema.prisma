@@ -1,8 +1,3 @@
-// Prisma Schema for SQL Server
-// This is your Prisma schema file.
-// Run `npx prisma db pull` to introspect your existing database
-// and generate models automatically.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,31 +7,401 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// After running `npx prisma db pull`, your models will appear here.
-// The introspection will generate models for all tables in your GOVT_UTILL_6 database:
-// - ZONE
-// - STAFF
-// - ADMINISTRATIVE_STAFF
-// - METER_READER
-// - FIELD_OFFICER
-// - CASHIER
-// - MANAGER
-// - CUSTOMER
-// - TARIFF_CATEGORY
-// - TARIFF_SLAB
-// - _CONNECTION
-// - METER
-// - SOLAR_INSTALLATION
-// - METER_READING
-// - BILL
-// - BILL_DETAIL
-// - PAYMENT
-// - SUBSIDY_SCHEME
-// - CUSTOMER_SUBSIDY
-// - TAX_CONFIG
-// - BILL_TAX
-// - COMPLAINT
-// - OUTAGE
-// - DISCONNECTION_ORDER
-// - RECONNECTION
-// - REPORT_REQUEST
+model Connection {
+  connection_id      BigInt             @id(map: "PK_CONNECTION") @default(autoincrement())
+  customer_id        BigInt
+  zone_id            BigInt
+  utility_type       String             @db.NVarChar(20)
+  service_address    String             @db.NVarChar(255)
+  tariff_category_id BigInt
+  connection_status  String             @db.NVarChar(50)
+  start_date         DateTime           @db.Date
+  end_date           DateTime?          @db.Date
+  customer           Customer           @relation(fields: [customer_id], references: [customer_id], onUpdate: NoAction, map: "FK_CONNECTION_CUSTOMER")
+  tariffCategory     TariffCategory     @relation(fields: [tariff_category_id], references: [tariff_category_id], onUpdate: NoAction, map: "FK_CONNECTION_TARIFF_CATEGORY")
+  zone               Zone               @relation(fields: [zone_id], references: [zone_id], onUpdate: NoAction, map: "FK_CONNECTION_ZONE")
+  bills              Bill[]
+  complaints         Complaint[]
+  meters             Meter[]
+  solarInstallation  SolarInstallation?
+
+  @@index([zone_id, utility_type], map: "IX_CONNECTION_zone_utility")
+  @@map("_CONNECTION")
+}
+
+model AdministrativeStaff {
+  staff_id                 BigInt  @id(map: "PK_ADMINISTRATIVE_STAFF")
+  department               String  @db.NVarChar(60)
+  can_manage_tariffs       Boolean
+  can_register_connections Boolean
+  shift_type               String? @db.NVarChar(20)
+  staff                    Staff   @relation(fields: [staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_ADMINISTRATIVE_STAFF_STAFF")
+
+  @@map("ADMINISTRATIVE_STAFF")
+}
+
+model Bill {
+  bill_id               BigInt       @id(map: "PK_BILL") @default(autoincrement())
+  connection_id         BigInt
+  meter_id              BigInt?
+  billing_period_start  DateTime     @db.Date
+  billing_period_end    DateTime     @db.Date
+  bill_date             DateTime     @db.Date
+  due_date              DateTime     @db.Date
+  total_import_units    Decimal      @db.Decimal(12, 3)
+  total_export_units    Decimal?     @db.Decimal(12, 3)
+  energy_charge_amount  Decimal      @db.Decimal(18, 2)
+  fixed_charge_amount   Decimal      @db.Decimal(18, 2)
+  subsidy_amount        Decimal      @db.Decimal(18, 2)
+  solar_export_credit   Decimal      @db.Decimal(18, 2)
+  tax_total_amount      Decimal      @db.Decimal(18, 2)
+  net_amount            Decimal      @db.Decimal(18, 2)
+  status                String       @db.NVarChar(50)
+  generated_by_staff_id BigInt?
+  connection            Connection   @relation(fields: [connection_id], references: [connection_id], onUpdate: NoAction, map: "FK_BILL_CONNECTION")
+  meter                 Meter?       @relation(fields: [meter_id], references: [meter_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_BILL_METER")
+  generatedByStaff      Staff?       @relation(fields: [generated_by_staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_BILL_STAFF")
+  billDetails           BillDetail[]
+  billTaxes             BillTax[]
+  payments              Payment[]
+
+  @@map("BILL")
+}
+
+model BillDetail {
+  bill_detail_id BigInt     @id(map: "PK_BILL_DETAIL") @default(autoincrement())
+  bill_id        BigInt
+  slab_id        BigInt
+  units_in_slab  Decimal    @db.Decimal(12, 3)
+  amount         Decimal    @db.Decimal(18, 2)
+  bill           Bill       @relation(fields: [bill_id], references: [bill_id], onUpdate: NoAction, map: "FK_BILL_DETAIL_BILL")
+  tariffSlab     TariffSlab @relation(fields: [slab_id], references: [slab_id], onUpdate: NoAction, map: "FK_BILL_DETAIL_SLAB")
+
+  @@map("BILL_DETAIL")
+}
+
+model BillTax {
+  bill_tax_id          BigInt    @id(map: "PK_BILL_TAX") @default(autoincrement())
+  bill_id              BigInt
+  tax_id               BigInt
+  rate_percent_applied Decimal   @db.Decimal(6, 3)
+  taxable_base_amount  Decimal   @db.Decimal(18, 2)
+  tax_amount           Decimal   @db.Decimal(18, 2)
+  bill                 Bill      @relation(fields: [bill_id], references: [bill_id], onUpdate: NoAction, map: "FK_BILL_TAX_BILL")
+  taxConfig            TaxConfig @relation(fields: [tax_id], references: [tax_id], onUpdate: NoAction, map: "FK_BILL_TAX_TAX")
+
+  @@map("BILL_TAX")
+}
+
+model Cashier {
+  staff_id       BigInt  @id(map: "PK_CASHIER")
+  counter_no     String? @db.NVarChar(20)
+  cash_drawer_id String? @db.NVarChar(30)
+  shift_type     String? @db.NVarChar(20)
+  staff          Staff   @relation(fields: [staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_CASHIER_STAFF")
+
+  @@map("CASHIER")
+}
+
+model Complaint {
+  complaint_id       BigInt      @id(map: "PK_COMPLAINT") @default(autoincrement())
+  customer_id        BigInt
+  connection_id      BigInt?
+  meter_id           BigInt?
+  complaint_type     String      @db.NVarChar(30)
+  description        String?     @db.NVarChar(500)
+  created_date       DateTime
+  status             String      @db.NVarChar(50)
+  logged_by_staff_id BigInt
+  assigned_staff_id  BigInt?
+  resolved_date      DateTime?
+  assignedStaff      Staff?      @relation("ComplaintAssignedTo", fields: [assigned_staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_COMPLAINT_ASSIGNED_TO")
+  connection         Connection? @relation(fields: [connection_id], references: [connection_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_COMPLAINT_CONNECTION")
+  customer           Customer    @relation(fields: [customer_id], references: [customer_id], onUpdate: NoAction, map: "FK_COMPLAINT_CUSTOMER")
+  loggedByStaff      Staff       @relation("ComplaintLoggedBy", fields: [logged_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_COMPLAINT_LOGGED_BY")
+  meter              Meter?      @relation(fields: [meter_id], references: [meter_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_COMPLAINT_METER")
+
+  @@map("COMPLAINT")
+}
+
+model Customer {
+  customer_id       BigInt            @id(map: "PK_CUSTOMER") @default(autoincrement())
+  zone_id           BigInt
+  full_name         String            @db.NVarChar(150)
+  identity_type     String            @db.NVarChar(20)
+  identity_ref      String?           @db.NVarChar(30)
+  phone             String?           @db.NVarChar(30)
+  email             String?           @db.NVarChar(150)
+  address_line1     String            @db.NVarChar(150)
+  address_line2     String?           @db.NVarChar(150)
+  city              String            @db.NVarChar(80)
+  postal_code       String?           @db.NVarChar(20)
+  registration_date DateTime          @db.Date
+  status            String            @db.NVarChar(50)
+  connections       Connection[]
+  complaints        Complaint[]
+  zone              Zone              @relation(fields: [zone_id], references: [zone_id], onUpdate: NoAction, map: "FK_CUSTOMER_ZONE")
+  subsidies         CustomerSubsidy[]
+
+  @@map("CUSTOMER")
+}
+
+model CustomerSubsidy {
+  customer_subsidy_id  BigInt        @id(map: "PK_CUSTOMER_SUBSIDY") @default(autoincrement())
+  customer_id          BigInt
+  subsidy_id           BigInt
+  approved_by_staff_id BigInt
+  approved_date        DateTime      @db.Date
+  status               String        @db.NVarChar(50)
+  customer             Customer      @relation(fields: [customer_id], references: [customer_id], onUpdate: NoAction, map: "FK_CUSTOMER_SUBSIDY_CUSTOMER")
+  subsidyScheme        SubsidyScheme @relation(fields: [subsidy_id], references: [subsidy_id], onUpdate: NoAction, map: "FK_CUSTOMER_SUBSIDY_SCHEME")
+  approvedByStaff      Staff         @relation(fields: [approved_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_CUSTOMER_SUBSIDY_STAFF")
+
+  @@map("CUSTOMER_SUBSIDY")
+}
+
+model DisconnectionOrder {
+  disconnection_id     BigInt    @id(map: "PK_DISCONNECTION_ORDER") @default(autoincrement())
+  meter_id             BigInt
+  reason               String    @db.NVarChar(40)
+  issue_date           DateTime  @db.Date
+  scheduled_date       DateTime  @db.Date
+  executed_date        DateTime? @db.Date
+  status               String    @db.NVarChar(50)
+  created_by_staff_id  BigInt
+  executed_by_staff_id BigInt?
+  createdByStaff       Staff     @relation("DisconnectionCreatedBy", fields: [created_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_DISCONNECTION_CREATED_BY")
+  executedByStaff      Staff?    @relation("DisconnectionExecutedBy", fields: [executed_by_staff_id], references: [staff_id], onDelete: NoAction, onUpdate: NoAction, map: "FK_DISCONNECTION_EXECUTED_BY")
+  meter                Meter     @relation(fields: [meter_id], references: [meter_id], onUpdate: NoAction, map: "FK_DISCONNECTION_METER")
+
+  @@map("DISCONNECTION_ORDER")
+}
+
+model FieldOfficer {
+  staff_id            BigInt  @id(map: "PK_FIELD_OFFICER")
+  route_code          String? @db.NVarChar(40)
+  certification_level String? @db.NVarChar(30)
+  shift_type          String? @db.NVarChar(20)
+  vehicle_no          String? @db.NVarChar(30)
+  staff               Staff   @relation(fields: [staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_FIELD_OFFICER_STAFF")
+
+  @@map("FIELD_OFFICER")
+}
+
+model Manager {
+  staff_id              BigInt   @id(map: "PK_MANAGER")
+  management_level      String?  @db.NVarChar(30)
+  approval_limit_amount Decimal? @db.Decimal(18, 2)
+  report_access_level   String?  @db.NVarChar(30)
+  staff                 Staff    @relation(fields: [staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_MANAGER_STAFF")
+
+  @@map("MANAGER")
+}
+
+model Meter {
+  meter_id             BigInt               @id(map: "PK_METER") @default(autoincrement())
+  connection_id        BigInt
+  meter_serial_no      String               @unique(map: "UQ_METER_serial") @db.NVarChar(60)
+  meter_type           String               @db.NVarChar(20)
+  meter_role           String               @db.NVarChar(25)
+  installed_from       DateTime             @db.Date
+  removed_at           DateTime?            @db.Date
+  status               String               @db.NVarChar(50)
+  is_smart_meter       Boolean
+  bills                Bill[]
+  complaints           Complaint[]
+  disconnectionOrders  DisconnectionOrder[]
+  connection           Connection           @relation(fields: [connection_id], references: [connection_id], onUpdate: NoAction, map: "FK_METER_CONNECTION")
+  readings             MeterReading[]
+  reconnections        Reconnection[]
+
+  @@map("METER")
+}
+
+model MeterReader {
+  staff_id   BigInt  @id(map: "PK_METER_READER")
+  device_id  String? @db.NVarChar(60)
+  route_code String? @db.NVarChar(40)
+  staff      Staff   @relation(fields: [staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_METER_READER_STAFF")
+
+  @@map("METER_READER")
+}
+
+model MeterReading {
+  reading_id           BigInt   @id(map: "PK_METER_READING") @default(autoincrement())
+  meter_id             BigInt
+  reading_date         DateTime @db.Date
+  import_reading       Decimal  @db.Decimal(12, 3)
+  export_reading       Decimal? @db.Decimal(12, 3)
+  reading_source       String   @db.NVarChar(20)
+  captured_by_staff_id BigInt
+  meter                Meter    @relation(fields: [meter_id], references: [meter_id], onUpdate: NoAction, map: "FK_METER_READING_METER")
+  capturedByStaff      Staff    @relation(fields: [captured_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_METER_READING_STAFF")
+
+  @@map("METER_READING")
+}
+
+model Outage {
+  outage_id           BigInt    @id(map: "PK_OUTAGE") @default(autoincrement())
+  zone_id             BigInt
+  utility_type        String    @db.NVarChar(20)
+  outage_type         String    @db.NVarChar(20)
+  start_time          DateTime
+  end_time            DateTime?
+  reason              String?   @db.NVarChar(255)
+  created_by_staff_id BigInt
+  createdByStaff      Staff     @relation(fields: [created_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_OUTAGE_STAFF")
+  zone                Zone      @relation(fields: [zone_id], references: [zone_id], onUpdate: NoAction, map: "FK_OUTAGE_ZONE")
+
+  @@map("OUTAGE")
+}
+
+model Payment {
+  payment_id           BigInt   @id(map: "PK_PAYMENT") @default(autoincrement())
+  bill_id              BigInt
+  payment_date         DateTime
+  payment_amount       Decimal  @db.Decimal(18, 2)
+  payment_method       String   @db.NVarChar(20)
+  payment_channel      String?  @db.NVarChar(30)
+  transaction_ref      String?  @db.NVarChar(80)
+  recorded_by_staff_id BigInt
+  bill                 Bill     @relation(fields: [bill_id], references: [bill_id], onUpdate: NoAction, map: "FK_PAYMENT_BILL")
+  recordedByStaff      Staff    @relation(fields: [recorded_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_PAYMENT_STAFF")
+
+  @@map("PAYMENT")
+}
+
+model Reconnection {
+  reconnection_id       BigInt   @id(map: "PK_RECONNECTION") @default(autoincrement())
+  meter_id              BigInt
+  reconnection_date     DateTime @db.Date
+  reconnection_fee      Decimal  @db.Decimal(18, 2)
+  processed_by_staff_id BigInt
+  meter                 Meter    @relation(fields: [meter_id], references: [meter_id], onUpdate: NoAction, map: "FK_RECONNECTION_METER")
+  processedByStaff      Staff    @relation(fields: [processed_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_RECONNECTION_STAFF")
+
+  @@map("RECONNECTION")
+}
+
+model ReportRequest {
+  report_request_id     BigInt   @id(map: "PK_REPORT_REQUEST") @default(autoincrement())
+  requested_by_staff_id BigInt
+  requested_at          DateTime
+  report_type           String   @db.NVarChar(50)
+  params_json           String?  @db.NVarChar(Max)
+  requestedByStaff      Staff    @relation(fields: [requested_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_REPORT_REQUEST_STAFF")
+
+  @@map("REPORT_REQUEST")
+}
+
+model SolarInstallation {
+  solar_id              BigInt     @id(map: "PK_SOLAR_INSTALLATION") @default(autoincrement())
+  connection_id         BigInt     @unique(map: "UQ_SOLAR_installation_per_connection")
+  installed_capacity_kw Decimal    @db.Decimal(6, 2)
+  scheme_type           String     @db.NVarChar(30)
+  approval_ref          String?    @db.NVarChar(60)
+  agreement_start_date  DateTime   @db.Date
+  agreement_end_date    DateTime?  @db.Date
+  status                String     @db.NVarChar(50)
+  connection            Connection @relation(fields: [connection_id], references: [connection_id], onUpdate: NoAction, map: "FK_SOLAR_INSTALLATION_CONNECTION")
+
+  @@map("SOLAR_INSTALLATION")
+}
+
+model Staff {
+  staff_id                    BigInt               @id(map: "PK_STAFF") @default(autoincrement())
+  employee_no                 String               @unique(map: "UQ_STAFF_employee_no") @db.NVarChar(30)
+  full_name                   String               @db.NVarChar(150)
+  phone                       String?              @db.NVarChar(30)
+  email                       String?              @db.NVarChar(150)
+  joined_date                 DateTime             @db.Date
+  status                      String               @db.NVarChar(50)
+  administrativeStaff         AdministrativeStaff?
+  generatedBills              Bill[]
+  cashier                     Cashier?
+  assignedComplaints          Complaint[]          @relation("ComplaintAssignedTo")
+  loggedComplaints            Complaint[]          @relation("ComplaintLoggedBy")
+  approvedSubsidies           CustomerSubsidy[]
+  createdDisconnectionOrders  DisconnectionOrder[] @relation("DisconnectionCreatedBy")
+  executedDisconnectionOrders DisconnectionOrder[] @relation("DisconnectionExecutedBy")
+  fieldOfficer                FieldOfficer?
+  manager                     Manager?
+  meterReader                 MeterReader?
+  meterReadings               MeterReading[]
+  outages                     Outage[]
+  recordedPayments            Payment[]
+  reconnections               Reconnection[]
+  reportRequests              ReportRequest[]
+  taxConfigs                  TaxConfig[]
+
+  @@map("STAFF")
+}
+
+model SubsidyScheme {
+  subsidy_id        BigInt            @id(map: "PK_SUBSIDY_SCHEME") @default(autoincrement())
+  name              String            @db.NVarChar(120)
+  discount_type     String            @db.NVarChar(20)
+  discount_value    Decimal           @db.Decimal(18, 2)
+  valid_from        DateTime          @db.Date
+  valid_to          DateTime?         @db.Date
+  description       String?           @db.NVarChar(255)
+  customerSubsidies CustomerSubsidy[]
+
+  @@map("SUBSIDY_SCHEME")
+}
+
+model TariffCategory {
+  tariff_category_id BigInt       @id(map: "PK_TARIFF_CATEGORY") @default(autoincrement())
+  utility_type       String       @db.NVarChar(20)
+  code               String       @db.NVarChar(20)
+  name               String       @db.NVarChar(100)
+  description        String?      @db.NVarChar(255)
+  is_subsidized      Boolean
+  connections        Connection[]
+  tariffSlabs        TariffSlab[]
+
+  @@map("TARIFF_CATEGORY")
+}
+
+model TariffSlab {
+  slab_id            BigInt         @id(map: "PK_TARIFF_SLAB") @default(autoincrement())
+  tariff_category_id BigInt
+  valid_from         DateTime       @db.Date
+  valid_to           DateTime?      @db.Date
+  min_units          Int
+  max_units          Int?
+  unit_price         Decimal        @db.Decimal(18, 2)
+  fixed_charge       Decimal        @db.Decimal(18, 2)
+  billDetails        BillDetail[]
+  tariffCategory     TariffCategory @relation(fields: [tariff_category_id], references: [tariff_category_id], onUpdate: NoAction, map: "FK_TARIFF_SLAB_CATEGORY")
+
+  @@map("TARIFF_SLAB")
+}
+
+model TaxConfig {
+  tax_id              BigInt     @id(map: "PK_TAX_CONFIG") @default(autoincrement())
+  tax_name            String     @db.NVarChar(50)
+  rate_percent        Decimal    @db.Decimal(6, 3)
+  effective_from      DateTime   @db.Date
+  effective_to        DateTime?  @db.Date
+  status              String     @db.NVarChar(50)
+  created_by_staff_id BigInt
+  created_at          DateTime
+  billTaxes           BillTax[]
+  createdByStaff      Staff      @relation(fields: [created_by_staff_id], references: [staff_id], onUpdate: NoAction, map: "FK_TAX_CONFIG_STAFF")
+
+  @@map("TAX_CONFIG")
+}
+
+model Zone {
+  zone_id        BigInt       @id(map: "PK_ZONE") @default(autoincrement())
+  zone_name      String       @db.NVarChar(100)
+  region         String?      @db.NVarChar(100)
+  office_address String?      @db.NVarChar(255)
+  office_phone   String?      @db.NVarChar(30)
+  connections    Connection[]
+  customers      Customer[]
+  outages        Outage[]
+
+  @@map("ZONE")
+}

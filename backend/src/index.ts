@@ -12,6 +12,10 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// BigInt serialization fix
+const bigIntSerializer = (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? value.toString() : value;
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -20,8 +24,8 @@ app.get('/api/health', (req, res) => {
 // Example endpoint to test database connection
 app.get('/api/zones', async (req, res) => {
   try {
-    const zones = await prisma.zONE.findMany();
-    res.json(zones);
+    const zones = await prisma.zone.findMany();
+    res.send(JSON.stringify(zones, bigIntSerializer));
   } catch (error) {
     console.error('Database error:', error);
     res.status(500).json({ error: 'Failed to fetch zones' });
