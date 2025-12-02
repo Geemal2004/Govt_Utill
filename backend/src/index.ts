@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { globalErrorHandler, notFoundHandler } from './middleware';
 import { asyncHandler, NotFoundError } from './utils';
+import { authRoutes } from './routes';
 
 dotenv.config();
 
@@ -27,6 +28,9 @@ const bigIntSerializer = (_key: string, value: unknown) =>
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Auth routes
+app.use('/api/auth', authRoutes);
 
 // Example endpoint using asyncHandler - no try-catch needed!
 app.get(
