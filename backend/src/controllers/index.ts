@@ -7,3 +7,11 @@ export {
   getBillById,
   getBillsByConnection,
 } from './billing.controller';
+export {
+  createPayment,
+  getPaymentsByBill,
+  getPaymentById,
+  getAllPayments,
+  getPaymentStats,
+} from './payment.controller';
+export { searchCustomers, getCustomerProfile } from './customer.controller';

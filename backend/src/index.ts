@@ -4,7 +4,12 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { globalErrorHandler, notFoundHandler } from './middleware';
 import { asyncHandler, NotFoundError } from './utils';
-import { authRoutes, billingRoutes } from './routes';
+import {
+  authRoutes,
+  billingRoutes,
+  paymentRoutes,
+  customerRoutes,
+} from './routes';
 
 dotenv.config();
 
@@ -43,6 +48,12 @@ app.use('/api/auth', authRoutes);
 
 // Billing routes
 app.use('/api/billing', billingRoutes);
+
+// Payment routes
+app.use('/api/payments', paymentRoutes);
+
+// Customer routes
+app.use('/api/customers', customerRoutes);
 
 // Example endpoint using asyncHandler - no try-catch needed!
 app.get(
