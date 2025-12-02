@@ -2,9 +2,10 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 
 /**
  * Type definition for async controller functions
+ * Made generic to support both Request and extended request types (e.g., AuthenticatedRequest)
  */
-type AsyncFunction = (
-  req: Request,
+type AsyncFunction<T = Request> = (
+  req: T,
   res: Response,
   next: NextFunction
 ) => Promise<unknown>;
@@ -34,9 +35,9 @@ type AsyncFunction = (
  *   res.json(zones);
  * }));
  */
-export const asyncHandler = (fn: AsyncFunction): RequestHandler => {
+export const asyncHandler = <T = Request>(fn: AsyncFunction<T>): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve(fn(req as T, res, next)).catch(next);
   };
 };
 
@@ -44,8 +45,8 @@ export const asyncHandler = (fn: AsyncFunction): RequestHandler => {
  * Alternative implementation using Express's native error handling
  * This version is slightly more explicit about the Promise handling
  */
-export const catchAsync = (fn: AsyncFunction): RequestHandler => {
+export const catchAsync = <T = Request>(fn: AsyncFunction<T>): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    fn(req, res, next).catch((error: Error) => next(error));
+    fn(req as T, res, next).catch((error: Error) => next(error));
   };
 };

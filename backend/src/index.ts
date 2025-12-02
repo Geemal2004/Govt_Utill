@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import { globalErrorHandler, notFoundHandler } from './middleware';
 import { asyncHandler, NotFoundError } from './utils';
-import { authRoutes } from './routes';
+import { authRoutes, billingRoutes } from './routes';
 
 dotenv.config();
 
@@ -12,11 +12,20 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3001;
 
+// ============================================
+// Global BigInt JSON Serialization Patch
+// ============================================
+// This patches JSON.stringify to handle BigInt values globally
+// Without this, any BigInt values will cause JSON serialization to crash
+(BigInt.prototype as any).toJSON = function () {
+  return this.toString();
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// BigInt serialization fix
+// BigInt serialization fix (for manual JSON.stringify calls)
 const bigIntSerializer = (_key: string, value: unknown) =>
   typeof value === 'bigint' ? value.toString() : value;
 
@@ -32,12 +41,16 @@ app.get('/api/health', (_req, res) => {
 // Auth routes
 app.use('/api/auth', authRoutes);
 
+// Billing routes
+app.use('/api/billing', billingRoutes);
+
 // Example endpoint using asyncHandler - no try-catch needed!
 app.get(
   '/api/zones',
   asyncHandler(async (_req, res) => {
     const zones = await prisma.zone.findMany();
-    res.send(JSON.stringify(zones, bigIntSerializer));
+    // BigInt.toJSON() handles serialization automatically now
+    res.json(zones);
   })
 );
 
@@ -54,7 +67,7 @@ app.get(
       throw NotFoundError(`Zone with ID ${id} not found`);
     }
 
-    res.send(JSON.stringify(zone, bigIntSerializer));
+    res.json(zone);
   })
 );
 
